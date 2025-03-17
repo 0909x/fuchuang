@@ -9,6 +9,7 @@ from datetime import datetime
 from openai import OpenAI, AsyncOpenAI
 import random
 import sys
+import argparse
 
 
 # 加载配置文件
@@ -59,6 +60,7 @@ def load_config() -> Dict:
                 "操作系统",
                 "数据库系统"
             ],
+            "ACTIVE_TOPICS": [],  # 当前活动的主题列表（由命令行参数设置）
             "DIFFICULTY_LEVELS": {  # 难度分布
                 "easy": 0.3,  # 简单题目
                 "medium": 0.5,  # 中等难度
@@ -72,6 +74,29 @@ def load_config() -> Dict:
     except json.JSONDecodeError as e:
         print(f"配置文件格式错误: {e}")
         raise
+
+
+def update_config_topics(topics: List[str]) -> None:
+    """更新配置文件中的活动主题列表"""
+    config_path = os.path.join(os.path.dirname(__file__), "generate_config.json")
+
+    try:
+        # 加载现有配置
+        with open(config_path, 'r', encoding='utf-8') as f:
+            config = json.load(f)
+
+        # 更新活动主题
+        config["ACTIVE_TOPICS"] = topics
+
+        # 保存更新后的配置
+        with open(config_path, 'w', encoding='utf-8') as f:
+            json.dump(config, f, indent=4, ensure_ascii=False)
+
+        print(f"已更新配置文件中的活动主题为: {', '.join(topics)}")
+
+    except Exception as e:
+        print(f"更新配置文件时出错: {str(e)}")
+        sys.exit(1)
 
 
 # 验证配置是否有效
@@ -131,10 +156,18 @@ def get_random_question_type(config):
     return random.choices(types, weights=weights, k=1)[0]
 
 
-def get_random_topic(config):
-    """从配置的主题列表中随机选择一个主题"""
-    topics = config.get("TOPICS", ["计算机科学", "人工智能", "数据科学"])
-    return random.choice(topics)
+def get_topic_from_config(config):
+    """从配置的活动主题列表中选择一个主题，如果没有活动主题则从所有主题中选择"""
+    # 首先检查是否有活动主题列表
+    active_topics = config.get("ACTIVE_TOPICS", [])
+
+    if active_topics:
+        # 如果有活动主题，从中随机选择一个
+        return random.choice(active_topics)
+    else:
+        # 否则从所有主题中随机选择
+        topics = config.get("TOPICS", ["计算机科学", "人工智能", "数据科学"])
+        return random.choice(topics)
 
 
 def get_random_difficulty(config):
@@ -279,7 +312,7 @@ def get_prompt_for_qa_generation(existing_qa_pairs=None, question_type=None, top
 ]
 
 请确保:
-1. 生成的问题在主题和难度上符合要求
+1. 生成的问题在主题"{topic}"相关的领域内，确保题目内容严格围绕这个主题
 2. 问题具有教育价值且事实准确
 3. 问题多样化，覆盖主题的不同方面
 4. 不与已有问题重复
@@ -310,7 +343,7 @@ async def generate_qa_pairs(semaphore: asyncio.Semaphore,
 
     # 随机选择题型、主题和难度
     question_type = get_random_question_type(config)
-    topic = get_random_topic(config)
+    topic = get_topic_from_config(config)
     difficulty = get_random_difficulty(config)
 
     logger.info(f"批次 {batch_id}: 生成{question_type_names.get(question_type, '未知')}，主题:{topic}，难度:{difficulty}")
@@ -441,6 +474,15 @@ async def process_qa_generation():
 
     # 设置日志记录
     logger = setup_logging(config.get("LOG_DIR", "logs"))
+
+    # 获取活动主题列表
+    active_topics = config.get("ACTIVE_TOPICS", [])
+    if active_topics:
+        topics_str = "，".join(active_topics)
+        logger.info(f"使用指定的主题: {topics_str}")
+    else:
+        logger.info("未指定特定主题，将从全部主题中随机选择")
+
     logger.info(f"开始生成问答对，目标数量: {config['TARGET_QA_COUNT']}")
 
     # 创建输出目录
@@ -539,16 +581,77 @@ async def process_qa_generation():
     with open(stats_file, 'w', encoding='utf-8') as f:
         json.dump(final_stats, f, ensure_ascii=False, indent=2)
 
-    return all_qa_pairs, final_stats
+    return all_qa_pairs, final_stats, qa_file_path
+
+
+def parse_arguments():
+    """解析命令行参数"""
+    parser = argparse.ArgumentParser(description='生成各种类型的教育测试题目')
+    parser.add_argument('topics', nargs='*', help='要生成题目的主题，例如"人工智能 大数据技术"')
+    parser.add_argument('-c', '--count', type=int, help='要生成的题目数量，默认使用配置文件中的设置')
+    parser.add_argument('-o', '--output-dir', help='输出目录，默认使用配置文件中的设置')
+    parser.add_argument('-i', '--info', action='store_true', help='显示当前配置信息')
+
+    return parser.parse_args()
 
 
 async def main_async():
     """主异步函数"""
     try:
-        qa_pairs, stats = await process_qa_generation()
+        # 解析命令行参数
+        args = parse_arguments()
+
+        # 加载配置
+        config = load_config()
+
+        # 显示配置信息并退出
+        if args.info:
+            print("\n当前配置信息:")
+            print(f"API模型: {config.get('model', '未设置')}")
+            print(f"目标题目数量: {config.get('TARGET_QA_COUNT', 500)}")
+            print(f"并发调用数: {config.get('MAX_CONCURRENT_CALLS', 5)}")
+            print(f"每批大小: {config.get('BATCH_SIZE', 8)}")
+            print(f"输出目录: {config.get('OUTPUT_DIR', 'generated_qa')}")
+            print("\n题型分布:")
+            for qtype, weight in config.get('QUESTION_TYPES', {}).items():
+                print(f"  {question_type_names.get(qtype, qtype)}: {weight * 100:.1f}%")
+            print("\n难度分布:")
+            for level, weight in config.get('DIFFICULTY_LEVELS', {}).items():
+                print(f"  {level}: {weight * 100:.1f}%")
+            print("\n可用主题:")
+            for topic in config.get('TOPICS', []):
+                print(f"  - {topic}")
+            if config.get('ACTIVE_TOPICS'):
+                print("\n当前活动主题:")
+                for topic in config.get('ACTIVE_TOPICS', []):
+                    print(f"  - {topic}")
+            sys.exit(0)
+
+        # 更新配置中的题目数量
+        if args.count:
+            config["TARGET_QA_COUNT"] = args.count
+            with open(os.path.join(os.path.dirname(__file__), "generate_config.json"), 'w', encoding='utf-8') as f:
+                json.dump(config, f, indent=4, ensure_ascii=False)
+            print(f"已将目标题目数量设置为 {args.count}")
+
+        # 更新配置中的输出目录
+        if args.output_dir:
+            config["OUTPUT_DIR"] = args.output_dir
+            with open(os.path.join(os.path.dirname(__file__), "generate_config.json"), 'w', encoding='utf-8') as f:
+                json.dump(config, f, indent=4, ensure_ascii=False)
+            print(f"已将输出目录设置为 {args.output_dir}")
+
+        # 处理主题参数
+        if args.topics:
+            # 更新配置中的活动主题
+            update_config_topics(args.topics)
+
+        # 运行生成过程
+        qa_pairs, stats, output_file = await process_qa_generation()
         print(f"\n成功生成 {len(qa_pairs)} 个问答对")
         print(f"问题类型分布: {stats['by_type']}")
         print(f"难度分布: {stats['by_difficulty']}")
+        print(f"输出文件: {output_file}")
     except Exception as e:
         print(f"生成过程中发生错误: {str(e)}")
 
