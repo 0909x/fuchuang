@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>测试题生成器</title>
+    <style>
+        body { font-family: Arial; max-width: 800px; margin: 0 auto; padding: 20px }
+        button { padding: 10px; background: #007bff; color: white; border: none }
+        #result { margin-top: 20px; white-space: pre-wrap }
+    </style>
+</head>
+<body>
+    <h1>测试题生成器</h1>
+    <button onclick="generate()">生成题目</button>
+    <div id="result"></div>
+
+    <script>
+        async function generate() {
+            const result = document.getElementById('result')
+            result.textContent = "生成中..."
+
+            try {
+                const res = await fetch('http://localhost:8000/generate-question')
+                const data = await res.json()
+                result.innerHTML = `
+                    <strong>${data.type}:</strong><br>
+                    ${data.question.replace(/\n/g, '<br>')}
+                `
+            } catch (e) {
+                result.textContent = "错误: " + e.message
+            }
+        }
+    </script>
+</body>
+</html>
