@@ -1,0 +1,20 @@
+{
+    "performance_target": 3.0,
+    "resource_limits": {
+        "cpu": 85,
+        "memory": 90
+    },
+    "audit_modes": {
+        "standard": {
+            "safety": true,
+            "accuracy": true,
+            "diversity": false
+        },
+        "full": {
+            "safety": true,
+            "accuracy": true,
+            "diversity": true,
+            "resource": true
+        }
+    }
+}
