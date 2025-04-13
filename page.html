@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -346,7 +347,7 @@
                     50% { transform: scale(1.05); }
                     100% { transform: scale(1); }
                 }
-        
+
                 /* 滚动提示动画 */
                 .scroll-indicator {
                     position: absolute;
@@ -358,7 +359,7 @@
                     0%, 100% { transform: translateY(0); }
                     50% { transform: translateY(-10px); }
                 }
-        
+
                 /* 响应式调整 */
                 @media (max-width: 768px) {
                     .columns-container {
@@ -368,6 +369,76 @@
                         margin: 0.5rem 0 !important;
                     }
                 }
+
+        /* 新增题目展示样式 */
+        .question-type {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 1rem;
+            font-size: 0.8rem;
+            color: white;
+            margin-right: 0.5rem;
+        }
+        .multiple-choice { background: #6366f1; }
+        .true-false { background: #10b981; }
+        .short-answer { background: #f59e0b; }
+        .fill-blank { background: #8b5cf6; }
+
+        .question-difficulty, .question-topic {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 1rem;
+            font-size: 0.8rem;
+            background: #e2e8f0;
+            margin-right: 0.5rem;
+        }
+
+        .question-options p {
+            margin: 0.3rem 0;
+            padding-left: 1.5rem;
+        }
+
+        .question-answer {
+            color: #6366f1;
+            font-weight: 500;
+            margin-top: 0.5rem;
+        }
+
+        .question-explanation {
+            color: #64748b;
+            font-size: 0.9rem;
+            margin-top: 0.5rem;
+            padding-top: 0.5rem;
+            border-top: 1px dashed #e2e8f0;
+        }
+
+        #view-all-container {
+            text-align: center;
+            margin-top: 1.5rem;
+            display: none;
+        }
+
+        #total-count {
+            margin-top: 0.5rem;
+            color: #64748b;
+            font-size: 0.9rem;
+        }
+
+.tag-input {
+    width: 100%;
+    padding: 0.8rem;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    margin-top: 0.5rem;
+}
+
+.tag-select {
+    width: 100%;
+    padding: 0.8rem;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    margin-top: 0.5rem;
+}
     </style>
 </head>
 <body>
@@ -393,7 +464,7 @@
                     <h3 style="font-size: 1.1rem;">系统概述</h3>
                     <p style="font-size: 0.9rem; line-height: 1.5;">基于先进的大语言模型技术，提供全流程的智能题库生成、题目变形、文本检测与数据分析服务。</p>
                 </div>
-        
+
                 <div class="metric-card" style="padding: 1.5rem; margin: 0.5rem;">
                     <i class="fas fa-cogs fa-2x" style="color: var(--primary); margin-bottom: 0.8rem;"></i>
                     <h3 style="font-size: 1.1rem;">核心功能</h3>
@@ -405,7 +476,7 @@
                     </ul>
                 </div>
             </div>
-        
+
             <!-- 缩小技术面板 -->
             <div class="content-card" style="background: var(--gradient-primary); color: white; padding: 1.5rem; margin: 1rem 0;">
                 <div class="columns-container" style="gap: 1.5rem;">
@@ -416,7 +487,7 @@
                             <div class="metric-label" style="font-size: 0.9rem;">检测准确率</div>
                         </div>
                     </div>
-                    
+
                     <div style="flex: 1.5;">
                         <h2 style="color: white; font-size: 1.2rem;">操作流程</h2>
                         <div class="progress-bar" style="height: 4px; margin: 1.5rem 0;">
@@ -432,10 +503,10 @@
                     </div>
                 </div>
             </div>
-        
+
             <!-- 强化跳转按钮 -->
             <div class="content-card" style="text-align: center; padding: 1.5rem; margin-top: 1rem; position: relative;">
-                <button class="submit-btn pulse-animation" 
+                <button class="submit-btn pulse-animation"
                         onclick="handleNavigation('question-generate')"
                         style="padding: 1rem 3rem; font-size: 1.1rem; margin: 1rem auto;">
                     <i class="fas fa-rocket"></i> 立即开始使用
@@ -445,85 +516,79 @@
                     <i class="fas fa-angle-double-down fa-lg"></i>
                 </div>
             </div>
-          
+
         </div>
-        <!-- 题库生成 -->
-        <div class="content-card content-page" id="question-generate">
-            <h1>题库生成</h1>
-            <div class="columns-container">
-                <div>
-                    <h3>选择题目类型</h3>
-                    <div class="radio-group">
-                        <label><input type="checkbox" checked> 选择题</label>
-                        <label><input type="checkbox"> 简答题</label>
-                        <label><input type="checkbox"> 判断题</label>
-                    </div>
-                </div>
-                <div>
-                    <h3>题目数量</h3>
-                    <input type="number" value="500" min="100" max="1000">
-                </div>
+<!-- 题库生成部分 -->
+    <div class="content-card content-page" id="question-generate">
+        <h1>题库生成</h1>
+
+
+<div class="columns-container">
+    <div>
+        <h3>题目类型</h3>
+        <div class="radio-group">
+            <label><input type="checkbox" name="qtype" value="multiple_choice" checked> 选择题</label>
+            <label><input type="checkbox" name="qtype" value="true_false"> 判断题</label>
+            <label><input type="checkbox" name="qtype" value="short_answer"> 简答题</label>
+            <label><input type="checkbox" name="qtype" value="fill_blank"> 填空题</label>
+        </div>
+    </div>
+    <div>
+        <h3>题目数量</h3>
+        <input type="number" id="qcount" min="3" max="20" value="5">
+    </div>
+</div>
+
+<div class="columns-container">
+    <div>
+        <h3>题目难度</h3>
+        <select id="qdifficulty">
+            <option value="easy">简单</option>
+            <option value="medium" selected>中等</option>
+            <option value="hard">困难</option>
+        </select>
+    </div>
+    <div>
+        <h3>题目主题</h3>
+        <div class="tag-mode-selector">
+            <label><input type="radio" name="tag-mode" value="preset" checked> 预设主题</label>
+            <label><input type="radio" name="tag-mode" value="custom"> 自定义主题</label>
+        </div>
+
+        <select id="qtopic" class="tag-input">
+            <option value="">全部主题</option>
+            <option value="计算机科学">计算机科学</option>
+            <option value="人工智能">人工智能</option>
+            <option value="数据科学">数据科学</option>
+        </select>
+
+        <input type="text" id="custom-topic" class="tag-input" style="display:none;"
+               placeholder="输入自定义主题(如:机器学习、网络安全等)">
+    </div>
+</div>
+
+        <button id="generateBtn" class="submit-btn">
+            <i class="fas fa-play"></i> 开始生成题目
+        </button>
+
+        <div id="question-results" style="margin-top: 2rem;">
+            <h3>生成结果</h3>
+            <div class="progress-bar">
+                <div id="generate-progress" class="progress-fill" style="width: 0%"></div>
             </div>
 
-            <div class="columns-container">
-                <div>
-                    <h3>题目来源</h3>
-                    <div class="radio-group">
-                        <label><input type="checkbox" checked> 网络爬虫</label>
-                        <label><input type="checkbox"> 模型生成</label>
-                    </div>
-                </div>
-                <div>
-                    <h3>文本输入检测</h3>
-                    <form>
-                        <div class="form-group">
-                            <label>输入待检测文本：</label>
-                            <input type="text" placeholder="请输入需要检测的文本内容..." required>
-                        </div>
-                        <button type="submit" class="submit-btn">
-                            <i class="fas fa-search"></i> 开始检测
-                        </button>
-                    </form>
-                </div>
-                <h3>题目标签</h3>
-                <div class="radio-group">
-                    <label><input type="checkbox" checked> 计算机科学</label>
-                    <label><input type="checkbox"> 人工智能</label>
-                    <label><input type="checkbox"> 大数据</label>
-                    <label><input type="checkbox"> 随机</label>
-                </div>
+            <div id="questions-container" class="example-container" style="margin-top: 1.5rem;">
+                <!-- 动态生成的题目将显示在这里 -->
             </div>
-            <button class="submit-btn"><i class="fas fa-play"></i> 开始生成题库</button>
-            <div id="question-examples">
-                <h3>生成题目示例</h3>
-                <div class="example-container">
-                    <div class="example-card">
-                        <div class="example-header">
-                            <span class="question-type">选择题</span>
-                            <span class="question-tag">计算机科学</span>
-                        </div>
-                        <p class="question-content">1. 以下哪种排序算法的时间复杂度是O(n log n)?</p>
-                        <p class="question-answer">答案: B. 快速排序</p>
-                    </div>
-                    <div class="example-card">
-                        <div class="example-header">
-                            <span class="question-type">判断题</span>
-                            <span class="question-tag">人工智能</span>
-                        </div>
-                        <p class="question-content">2. 神经网络必须包含隐藏层才能处理非线性问题。</p>
-                        <p class="question-answer">答案：正确</p>
-                    </div>
-                    <div class="example-card">
-                        <div class="example-header">
-                            <span class="question-type">简答题</span>
-                            <span class="question-tag">大数据</span>
-                        </div>
-                        <p class="question-content">3. 请简述MapReduce的工作原理。</p>
-                        <p class="question-answer">答案：分而治之的分布式计算框架...</p>
-                    </div>
-                </div>
+
+            <div id="view-all-container">
+                <button id="viewAllBtn" class="submit-btn" style="padding: 0.75rem 1.5rem;">
+                    <i class="fas fa-list"></i> 查看全部题目
+                </button>
+                <p id="total-count"></p>
             </div>
         </div>
+    </div>
 
         <!-- 题库变形 -->
         <div class="content-card content-page" id="question-transform">
@@ -676,86 +741,519 @@
     </main>
 
     <script>
-        // 全局导航处理函数
-        function handleNavigation(targetPage) {
-            window.setActivePage(targetPage);
-            history.pushState({}, '', `#${targetPage}`);
-        }
-        
-        // 全局页面切换函数
-        window.setActivePage = function(pageId) {
-            const pages = document.querySelectorAll('.content-page');
-            const navItems = document.querySelectorAll('.nav-item');
-        
-            // GSAP页面切换动画
-            pages.forEach(page => {
-                if (page.id === pageId) {
-                    gsap.fromTo(page,
-                        { opacity: 0, y: 20, display: 'none' },
-                        { 
-                            duration: 0.6, 
-                            opacity: 1, 
-                            y: 0, 
-                            display: 'block', 
-                            ease: 'power3.out',
-                            onComplete: () => {
-                                // 重新绑定动态内容的事件
-                                bindNavEvents();
-                            }
-                        }
-                    );
-                } else {
-                    gsap.to(page, {
-                        duration: 0.3,
-                        opacity: 0,
-                        y: 20,
-                        ease: 'power2.inOut',
-                        onComplete: () => page.style.display = 'none'
-                    });
+// 全局导航处理函数
+function handleNavigation(targetPage) {
+    window.setActivePage(targetPage);
+    history.pushState({}, '', `#${targetPage}`);
+}
+
+// 全局页面切换函数
+window.setActivePage = function(pageId) {
+    const pages = document.querySelectorAll('.content-page');
+    const navItems = document.querySelectorAll('.nav-item');
+
+    // GSAP页面切换动画
+    pages.forEach(page => {
+        if (page.id === pageId) {
+            gsap.fromTo(page,
+                { opacity: 0, y: 20, display: 'none' },
+                {
+                    duration: 0.6,
+                    opacity: 1,
+                    y: 0,
+                    display: 'block',
+                    ease: 'power3.out',
+                    onComplete: () => {
+                        // 重新绑定动态内容的事件
+                        bindNavEvents();
+                    }
                 }
-            });
-        
-            // 更新导航状态
-            navItems.forEach(nav => {
-                nav.classList.toggle('active', nav.dataset.page === pageId);
-            });
-        
-            // 滚动到顶部
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        };
-        
-        // 事件绑定函数
-        function bindNavEvents() {
-            document.querySelectorAll('.nav-item').forEach(item => {
-                // 移除旧的事件监听器
-                item.removeEventListener('click', handleNavClick);
-                // 添加新的事件监听器
-                item.addEventListener('click', handleNavClick);
+            );
+        } else {
+            gsap.to(page, {
+                duration: 0.3,
+                opacity: 0,
+                y: 20,
+                ease: 'power2.inOut',
+                onComplete: () => page.style.display = 'none'
             });
         }
-        
-        // 导航点击处理
-        function handleNavClick(e) {
+    });
+
+    // 更新导航状态
+    navItems.forEach(nav => {
+        nav.classList.toggle('active', nav.dataset.page === pageId);
+    });
+
+    // 滚动到顶部
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+};
+
+// 事件绑定函数
+function bindNavEvents() {
+    document.querySelectorAll('.nav-item').forEach(item => {
+        // 移除旧的事件监听器
+        item.removeEventListener('click', handleNavClick);
+        // 添加新的事件监听器
+        item.addEventListener('click', handleNavClick);
+    });
+
+    // 绑定标签模式切换事件
+    document.querySelectorAll('input[name="tag-mode"]').forEach(radio => {
+        radio.removeEventListener('change', handleTagModeChange);
+        radio.addEventListener('change', handleTagModeChange);
+    });
+
+    // 绑定生成按钮事件
+    const generateBtn = document.getElementById('generateBtn');
+    if (generateBtn) {
+        generateBtn.removeEventListener('click', handleGenerateQuestions);
+        generateBtn.addEventListener('click', handleGenerateQuestions);
+    }
+
+    // 绑定查看全部按钮事件
+    const viewAllBtn = document.getElementById('viewAllBtn');
+    if (viewAllBtn) {
+        viewAllBtn.removeEventListener('click', handleViewAllQuestions);
+        viewAllBtn.addEventListener('click', handleViewAllQuestions);
+    }
+}
+
+// 标签模式切换处理
+function handleTagModeChange() {
+    const isCustom = this.value === 'custom';
+    document.getElementById('qtopic').style.display = isCustom ? 'none' : 'block';
+    document.getElementById('custom-topic-container').style.display = isCustom ? 'block' : 'none';
+}
+
+// 导航点击处理
+function handleNavClick(e) {
+    e.preventDefault();
+    const targetPage = this.dataset.page;
+    handleNavigation(targetPage);
+}
+
+// 题库生成功能
+async function handleGenerateQuestions() {
+    const btn = this;
+    const progress = document.getElementById('generate-progress');
+    const container = document.getElementById('questions-container');
+    const viewAllContainer = document.getElementById('view-all-container');
+    const totalCountEl = document.getElementById('total-count');
+
+    // 重置状态
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 生成中...';
+    progress.style.width = '0%';
+    container.innerHTML = '<div class="example-card"><p>正在生成题目，请稍候...</p></div>';
+    viewAllContainer.style.display = 'none';
+
+    try {
+        // ==================== 1. 收集用户输入 ====================
+        const selectedTypes = Array.from(document.querySelectorAll('input[name="qtype"]:checked')).map(el => el.value);
+        const count = parseInt(document.getElementById('qcount').value);
+        const difficulty = document.getElementById('qdifficulty').value;
+
+        // 获取主题（预设或自定义）
+        const isCustomTopic = document.querySelector('input[name="tag-mode"]:checked').value === 'custom';
+        let topic = '';
+        if(isCustomTopic) {
+            topic = document.getElementById('custom-topic').value.trim();
+            if(!topic) {
+                throw new Error('请输入自定义主题');
+            }
+        } else {
+            topic = document.getElementById('qtopic').value;
+        }
+
+        // 验证输入
+        if(selectedTypes.length === 0) {
+            throw new Error('请至少选择一种题目类型');
+        }
+        if(isNaN(count) || count < 3 || count > 20) {
+            throw new Error('题目数量需在3-20之间');
+        }
+
+        // ==================== 2. 准备请求数据 ====================
+        const requestData = {
+            types: selectedTypes,
+            count: count,
+            difficulty: difficulty,
+            topic: topic,
+            is_custom_topic: isCustomTopic
+        };
+
+        console.log('[DEBUG] 发送请求数据:', requestData);
+
+        // ==================== 3. 显示进度条动画 ====================
+        const progressInterval = setInterval(() => {
+            const current = parseInt(progress.style.width) || 0;
+            const increment = current < 90 ? 10 : 0; // 到达90%后停止自动增长
+            progress.style.width = (current + increment) + '%';
+        }, 300);
+
+        // ==================== 4. 调用API ====================
+        let response;
+        try {
+            response = await fetch('http://localhost:8000/generate', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(requestData),
+                mode: 'cors'
+            });
+        } catch (networkError) {
+            clearInterval(progressInterval);
+            throw new Error(`网络连接失败: ${networkError.message}`);
+        }
+
+        clearInterval(progressInterval);
+        progress.style.width = '100%';
+
+        // ==================== 5. 处理响应 ====================
+        if (!response.ok) {
+            // 尝试解析错误信息
+            let errorMsg = `请求失败: ${response.status}`;
+            try {
+                const errorData = await response.json();
+                errorMsg = errorData.message || errorMsg;
+            } catch (e) {}
+            throw new Error(errorMsg);
+        }
+
+        const data = await response.json();
+        console.log('[DEBUG] 收到响应数据:', data);
+
+        // ==================== 6. 显示结果 ====================
+        if (data.status === 'success' && data.questions && data.questions.length > 0) {
+            // 存储全部题目
+            window.allQuestions = data.questions;
+
+            // 只显示前3个题目（如果多于3个）
+            const displayCount = Math.min(3, data.questions.length);
+            const displayQuestions = data.questions.slice(0, displayCount);
+            container.innerHTML = renderQuestions(displayQuestions);
+
+            // 如果题目多于3个，显示"查看全部"按钮
+            if (data.questions.length > 3) {
+                viewAllContainer.style.display = 'block';
+                totalCountEl.textContent = `共生成 ${data.questions.length} 道题目`;
+            }
+
+            // 自动滚动到结果区域
+            container.scrollIntoView({ behavior: 'smooth' });
+        } else {
+            throw new Error(data.message || '没有生成题目，请检查参数设置');
+        }
+
+    } catch (error) {
+        console.error('[ERROR] 生成题目出错:', error);
+
+        // 显示友好的错误信息
+        container.innerHTML = `
+        <div class="example-card" style="color: #ef4444;">
+            <p><i class="fas fa-exclamation-triangle"></i> ${error.message}</p>
+            ${error.message.includes('网络连接') ?
+              '<p style="font-size:0.8rem">请检查后端服务是否运行 (http://localhost:8000)</p>' : ''}
+        </div>`;
+
+        // 重置进度条
+        progress.style.width = '0%';
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-play"></i> 重新生成';
+    }
+}
+
+// 辅助函数：渲染题目列表
+function renderQuestions(questions) {
+    return questions.map((q, i) => {
+        let typeClass = '', typeText = '';
+        switch(q.type) {
+            case 'multiple_choice': typeClass = 'multiple-choice'; typeText = '选择题'; break;
+            case 'true_false': typeClass = 'true-false'; typeText = '判断题'; break;
+            case 'short_answer': typeClass = 'short-answer'; typeText = '简答题'; break;
+            case 'fill_blank': typeClass = 'fill-blank'; typeText = '填空题'; break;
+            default: typeText = q.type || '未知类型';
+        }
+
+        return `
+        <div class="example-card">
+            <div class="example-header">
+                <span class="question-type ${typeClass}">${typeText}</span>
+                ${q.difficulty ? `<span class="question-difficulty">${q.difficulty}</span>` : ''}
+                ${q.topic ? `<span class="question-topic">${q.topic}</span>` : ''}
+            </div>
+            <p class="question-content">${i+1}. ${q.question}</p>
+            ${q.options ? `
+            <div class="question-options">
+                ${Object.entries(q.options).map(([key, val]) => `<p>${key}. ${val}</p>`).join('')}
+            </div>` : ''}
+            ${q.answer ? `<p class="question-answer">答案: ${q.answer}</p>` : ''}
+            ${q.explanation ? `<p class="question-explanation">解析: ${q.explanation}</p>` : ''}
+        </div>`;
+    }).join('');
+}
+// 查看全部题目
+function handleViewAllQuestions() {
+    const container = document.getElementById('questions-container');
+    if (window.allQuestions) {
+        container.innerHTML = renderQuestions(window.allQuestions);
+        document.getElementById('view-all-container').style.display = 'none';
+    }
+}
+
+// 渲染题目列表的函数
+function renderQuestions(questions) {
+    return questions.map((q, i) => {
+        let typeClass = '', typeText = '';
+        switch(q.type) {
+            case 'multiple_choice': typeClass = 'multiple-choice'; typeText = '选择题'; break;
+            case 'true_false': typeClass = 'true-false'; typeText = '判断题'; break;
+            case 'short_answer': typeClass = 'short-answer'; typeText = '简答题'; break;
+            case 'fill_blank': typeClass = 'fill-blank'; typeText = '填空题'; break;
+            default: typeText = q.type || '未知类型';
+        }
+
+        return `
+        <div class="example-card">
+            <div class="example-header">
+                <span class="question-type ${typeClass}">${typeText}</span>
+                ${q.difficulty ? `<span class="question-difficulty">${q.difficulty}</span>` : ''}
+                ${q.topic ? `<span class="question-topic">${q.topic}</span>` : ''}
+            </div>
+            <p class="question-content">${i+1}. ${q.question}</p>
+            ${q.options ? `
+            <div class="question-options">
+                ${Object.entries(q.options).map(([key, val]) =>
+                  `<p>${key}. ${val}</p>`).join('')}
+            </div>` : ''}
+            ${q.answer ? `<p class="question-answer">答案: ${q.answer}</p>` : ''}
+            ${q.explanation ? `<p class="question-explanation">解析: ${q.explanation}</p>` : ''}
+        </div>`;
+    }).join('');
+}
+
+// 初始化页面
+// 页面加载完成后初始化所有事件监听
+document.addEventListener('DOMContentLoaded', function() {
+    // 1. 导航菜单点击事件
+    document.querySelectorAll('.nav-item').forEach(item => {
+        item.addEventListener('click', function(e) {
             e.preventDefault();
             const targetPage = this.dataset.page;
             handleNavigation(targetPage);
-        }
-        
-        document.addEventListener('DOMContentLoaded', () => {
-            // 初始绑定
-            bindNavEvents();
-        
-            // 处理浏览器历史记录
-            window.addEventListener('popstate', () => {
-                const hash = window.location.hash.replace('#', '') || 'home';
-                window.setActivePage(hash);
-            });
-        
-            // 初始化页面
-            const initPage = window.location.hash.replace('#', '') || 'home';
-            window.setActivePage(initPage);
         });
-        </script>
+    });
+
+    // 2. 标签模式切换事件
+    document.querySelectorAll('input[name="tag-mode"]').forEach(radio => {
+        radio.addEventListener('change', function() {
+            const isCustom = this.value === 'custom';
+            document.getElementById('qtopic').style.display = isCustom ? 'none' : 'block';
+            document.getElementById('custom-topic').style.display = isCustom ? 'block' : 'none';
+
+            // 切换时清空另一个输入
+            if(isCustom) {
+                document.getElementById('qtopic').value = '';
+            } else {
+                document.getElementById('custom-topic').value = '';
+            }
+        });
+    });
+
+    // 3. 生成题目按钮点击事件
+    const generateBtn = document.getElementById('generateBtn');
+    if(generateBtn) {
+        generateBtn.addEventListener('click', async function() {
+            const btn = this;
+            const progress = document.getElementById('generate-progress');
+            const container = document.getElementById('questions-container');
+            const viewAllContainer = document.getElementById('view-all-container');
+            const totalCountEl = document.getElementById('total-count');
+
+            // 禁用按钮并显示加载状态
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 生成中...';
+            progress.style.width = '0%';
+            container.innerHTML = '<div class="example-card"><p>正在生成题目，请稍候...</p></div>';
+            viewAllContainer.style.display = 'none';
+
+            try {
+                // 模拟进度条动画
+                const progressInterval = setInterval(() => {
+                    const current = parseInt(progress.style.width) || 0;
+                    progress.style.width = (current + 10) + '%';
+                    if (current >= 90) clearInterval(progressInterval);
+                }, 300);
+
+                // 获取用户输入
+                const selectedTypes = Array.from(document.querySelectorAll('input[name="qtype"]:checked')).map(el => el.value);
+                const count = parseInt(document.getElementById('qcount').value);
+                const difficulty = document.getElementById('qdifficulty').value;
+
+                // 获取主题（预设或自定义）
+                const isCustomTopic = document.querySelector('input[name="tag-mode"]:checked').value === 'custom';
+                let topic = '';
+                if(isCustomTopic) {
+                    topic = document.getElementById('custom-topic').value.trim();
+                    if(!topic) throw new Error('请输入自定义主题');
+                } else {
+                    topic = document.getElementById('qtopic').value;
+                }
+
+                // 调用API生成题目
+                const response = await fetch('http://localhost:8000/generate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        types: selectedTypes,
+                        count: count,
+                        difficulty: difficulty,
+                        topic: topic,
+                        is_custom_topic: isCustomTopic
+                    }),
+                    mode: 'cors'
+                });
+
+                clearInterval(progressInterval);
+                progress.style.width = '100%';
+
+                if (!response.ok) {
+                    throw new Error(`请求失败: ${response.status}`);
+                }
+
+                const data = await response.json();
+
+                // 处理返回的题目数据
+                if (data.status === 'success' && data.questions && data.questions.length > 0) {
+                    // 存储全部题目
+                    window.allQuestions = data.questions;
+
+                    // 只显示前3个题目
+                    const displayQuestions = data.questions.slice(0, 3);
+                    container.innerHTML = renderQuestions(displayQuestions);
+
+                    // 如果题目多于3个，显示"查看全部"按钮
+                    if (data.questions.length > 3) {
+                        viewAllContainer.style.display = 'block';
+                        totalCountEl.textContent = `共生成 ${data.questions.length} 道题目`;
+                    }
+                } else {
+                    container.innerHTML = '<div class="example-card"><p>没有生成题目，请重试</p></div>';
+                }
+            } catch (error) {
+                console.error('生成题目出错:', error);
+                container.innerHTML = `
+                <div class="example-card" style="color: #ef4444;">
+                    <p><i class="fas fa-exclamation-triangle"></i> ${error.message}</p>
+                </div>`;
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-play"></i> 重新生成';
+            }
+        });
+    }
+
+    // 4. 查看全部题目按钮点击事件
+    const viewAllBtn = document.getElementById('viewAllBtn');
+    if(viewAllBtn) {
+        viewAllBtn.addEventListener('click', function() {
+            const container = document.getElementById('questions-container');
+            if (window.allQuestions) {
+                container.innerHTML = renderQuestions(window.allQuestions);
+                document.getElementById('view-all-container').style.display = 'none';
+            }
+        });
+    }
+
+    // 5. 浏览器历史记录变化事件
+    window.addEventListener('popstate', function() {
+        const hash = window.location.hash.replace('#', '') || 'home';
+        setActivePage(hash);
+    });
+
+    // 初始化页面
+    const initPage = window.location.hash.replace('#', '') || 'home';
+    setActivePage(initPage);
+});
+
+// 页面切换函数
+function setActivePage(pageId) {
+    const pages = document.querySelectorAll('.content-page');
+    const navItems = document.querySelectorAll('.nav-item');
+
+    // 使用GSAP动画切换页面
+    pages.forEach(page => {
+        if (page.id === pageId) {
+            gsap.fromTo(page,
+                { opacity: 0, y: 20, display: 'none' },
+                {
+                    duration: 0.6,
+                    opacity: 1,
+                    y: 0,
+                    display: 'block',
+                    ease: 'power3.out'
+                }
+            );
+        } else {
+            gsap.to(page, {
+                duration: 0.3,
+                opacity: 0,
+                y: 20,
+                ease: 'power2.inOut',
+                onComplete: () => page.style.display = 'none'
+            });
+        }
+    });
+
+    // 更新导航菜单激活状态
+    navItems.forEach(nav => {
+        nav.classList.toggle('active', nav.dataset.page === pageId);
+    });
+
+    // 滚动到顶部
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// 导航处理函数
+function handleNavigation(targetPage) {
+    setActivePage(targetPage);
+    history.pushState({}, '', `#${targetPage}`);
+}
+
+// 渲染题目列表的函数
+function renderQuestions(questions) {
+    return questions.map((q, i) => {
+        let typeClass = '', typeText = '';
+        switch(q.type) {
+            case 'multiple_choice': typeClass = 'multiple-choice'; typeText = '选择题'; break;
+            case 'true_false': typeClass = 'true-false'; typeText = '判断题'; break;
+            case 'short_answer': typeClass = 'short-answer'; typeText = '简答题'; break;
+            case 'fill_blank': typeClass = 'fill-blank'; typeText = '填空题'; break;
+            default: typeText = q.type || '未知类型';
+        }
+
+        return `
+        <div class="example-card">
+            <div class="example-header">
+                <span class="question-type ${typeClass}">${typeText}</span>
+                ${q.difficulty ? `<span class="question-difficulty">${q.difficulty}</span>` : ''}
+                ${q.topic ? `<span class="question-topic">${q.topic}</span>` : ''}
+            </div>
+            <p class="question-content">${i+1}. ${q.question}</p>
+            ${q.options ? `
+            <div class="question-options">
+                ${Object.entries(q.options).map(([key, val]) => `<p>${key}. ${val}</p>`).join('')}
+            </div>` : ''}
+            ${q.answer ? `<p class="question-answer">答案: ${q.answer}</p>` : ''}
+            ${q.explanation ? `<p class="question-explanation">解析: ${q.explanation}</p>` : ''}
+        </div>`;
+    }).join('');
+}
     </script>
 </body>
 </html>

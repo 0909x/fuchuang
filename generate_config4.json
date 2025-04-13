@@ -1,0 +1,43 @@
+{
+    "api_key": "sk-ksfdqhwcqcwohqkxvhjflijuiywjzncnppzrllagbtmcxmkd",
+    "base_url": "https://api.siliconflow.cn/v1",
+    "model": "internlm/internlm2_5-7b-chat",
+    "MAX_CONCURRENT_CALLS": 5,
+    "BATCH_SIZE": 8,
+    "FAIL_WAIT_TIME": 5,
+    "MAX_RETRIES": 3,
+    "RETRY_DELAY": 5,
+    "TARGET_QA_COUNT": 10,
+    "QA_PER_REQUEST": 5,
+    "OUTPUT_DIR": "generated_qa",
+    "LOG_DIR": "logs",
+    "QUESTION_TYPES": {
+        "multiple_choice": 0.4,
+        "fill_blank": 0.2,
+        "true_false": 0.2,
+        "short_answer": 0.2
+    },
+    "TOPICS": [
+        "计算机科学",
+        "人工智能",
+        "机器学习",
+        "数据科学",
+        "编程语言",
+        "软件工程",
+        "网络安全",
+        "云计算",
+        "大数据",
+        "区块链",
+        "物联网",
+        "Web开发",
+        "移动开发",
+        "操作系统",
+        "数据库系统"
+    ],
+    "ACTIVE_TOPICS": [],
+    "DIFFICULTY_LEVELS": {
+        "easy": 0.3,
+        "medium": 0.5,
+        "hard": 0.2
+    }
+}
