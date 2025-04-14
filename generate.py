@@ -33,7 +33,7 @@ def load_config() -> Dict:
             "FAIL_WAIT_TIME": 5,
             "MAX_RETRIES": 3,
             "RETRY_DELAY": 5,
-            "TARGET_QA_COUNT": 500,  # 目标问答对数量
+            "TARGET_QA_COUNT": 10,  # 目标问答对数量
             "QA_PER_REQUEST": 5,  # 每次API调用生成的问答对数量
             "OUTPUT_DIR": "generated_qa",
             "LOG_DIR": "logs",
@@ -111,29 +111,33 @@ def validate_config(config):
     return None
 
 
-# 设置日志记录
 def setup_logging(log_dir: str = "logs") -> logging.Logger:
     """设置日志记录"""
-    os.makedirs(log_dir, exist_ok=True)
     logger = logging.getLogger('qa_generator')
 
+    # 防止重复添加handler
     if logger.handlers:
         return logger
 
     logger.setLevel(logging.DEBUG)
+    logger.propagate = False  # 防止日志向上传播
 
+    # 创建文件handler
+    os.makedirs(log_dir, exist_ok=True)
     log_file = os.path.join(log_dir, f"qa_generation_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log")
-
     file_handler = logging.FileHandler(log_file, encoding='utf-8')
     file_handler.setLevel(logging.DEBUG)
 
+    # 创建控制台handler
     console_handler = logging.StreamHandler()
     console_handler.setLevel(logging.INFO)
 
+    # 创建统一的格式
     formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
     file_handler.setFormatter(formatter)
     console_handler.setFormatter(formatter)
 
+    # 添加handler
     logger.addHandler(file_handler)
     logger.addHandler(console_handler)
 
@@ -334,80 +338,107 @@ question_type_names = {
 }
 
 
-async def generate_qa_pairs(semaphore: asyncio.Semaphore,
-                            existing_qa_pairs: List[Dict] = None,
-                            batch_id: int = 0) -> List[Dict]:
-    """生成问答对的异步函数"""
+async def generate_qa_pairs(semaphore=None, existing_qa_pairs=None, batch_id=0, config=None):
+    """
+    生成问答对的异步函数
+
+    参数:
+        semaphore (asyncio.Semaphore): 并发控制信号量
+        existing_qa_pairs (List[Dict]): 已存在的问答对列表(用于去重)
+        batch_id (int): 当前批次ID
+        config (Dict): 生成配置
+
+    返回:
+        List[Dict]: 生成的问答对列表
+    """
     logger = logging.getLogger('qa_generator')
-    config = load_config()
 
-    # 随机选择题型、主题和难度
-    question_type = get_random_question_type(config)
-    topic = get_topic_from_config(config)
-    difficulty = get_random_difficulty(config)
+    # 加载配置(如果未传入)
+    config = config or load_config()
 
-    logger.info(f"批次 {batch_id}: 生成{question_type_names.get(question_type, '未知')}，主题:{topic}，难度:{difficulty}")
+    try:
+        # 随机选择题型、主题和难度
+        question_type = get_random_question_type(config)
+        topic = get_topic_from_config(config)
+        difficulty = get_random_difficulty(config)
 
-    messages = get_prompt_for_qa_generation(existing_qa_pairs, question_type, topic, difficulty)
+        logger.info(
+            f"批次 {batch_id}: 生成{question_type_names.get(question_type, '未知')}，主题:{topic}，难度:{difficulty}")
 
-    async with semaphore:
-        try:
-            client = AsyncOpenAI(
-                api_key=config['api_key'],
-                base_url=config['base_url']
-            )
+        # 准备生成提示
+        messages = get_prompt_for_qa_generation(
+            existing_qa_pairs=existing_qa_pairs,
+            question_type=question_type,
+            topic=topic,
+            difficulty=difficulty
+        )
 
-            for attempt in range(config["MAX_RETRIES"]):
+        # 如果没有传入信号量，创建一个虚拟信号量
+        semaphore = semaphore or asyncio.Semaphore(1)
+
+        async with semaphore:
+            for attempt in range(config.get("MAX_RETRIES", 3)):
                 try:
+                    # 创建API客户端
+                    client = AsyncOpenAI(
+                        api_key=config['api_key'],
+                        base_url=config['base_url']
+                    )
+
+                    # 调用API生成题目
                     completion = await client.chat.completions.create(
                         model=config["model"],
                         messages=messages,
                         temperature=0.7
                     )
 
-                    try:
-                        content = completion.choices[0].message.content
-                        # 检查返回内容是否被代码块包围，如果是则提取其中的JSON
-                        if content.startswith("```json") and content.endswith("```"):
-                            content = content[7:-3].strip()
+                    # 处理返回内容
+                    content = completion.choices[0].message.content
 
-                        qa_pairs = json.loads(content)
-                        logger.info(
-                            f"批次 {batch_id}: 成功生成 {len(qa_pairs)} 个{question_type_names.get(question_type, '未知')}")
+                    # 检查是否被代码块包围
+                    if content.startswith("```json") and content.endswith("```"):
+                        content = content[7:-3].strip()
 
-                        # 为每个问答对添加元数据
-                        for qa in qa_pairs:
-                            # if "type" not in qa:
-                            #     qa["type"] = question_type
-                            qa["topic"] = topic
-                            qa["difficulty"] = difficulty
-                            # qa["generation_time"] = datetime.now().isoformat()
-                            # qa["batch_id"] = batch_id
+                    # 解析JSON
+                    qa_pairs = json.loads(content)
 
-                        return qa_pairs
-                    except json.JSONDecodeError:
-                        logger.error(f"批次 {batch_id}: 解析问答对JSON失败")
-                        logger.debug(f"模型返回内容: {completion.choices[0].message.content}")
-                        if attempt < config["MAX_RETRIES"] - 1:
-                            logger.info(f"批次 {batch_id}: 重试中 ({attempt + 1}/{config['MAX_RETRIES']})")
-                            await asyncio.sleep(config["RETRY_DELAY"])
-                        else:
-                            return []
+                    # 添加元数据
+                    for qa in qa_pairs:
+                        qa.update({
+                            "type": qa.get("type", question_type),
+                            "source_type": qa.get("type", question_type),  # 明确设置source_type
+                            "topic": topic,
+                            "difficulty": difficulty,
+                            "current_format": "json",  # 新增
+                            "generation_time": datetime.now().isoformat(),
+                            "batch_id": batch_id,
+                            "transformations": []  # 新增版本历史
+                        })
+
+                    logger.info(
+                        f"批次 {batch_id}: 成功生成 {len(qa_pairs)} 个{question_type_names.get(question_type, '未知')}")
+                    return qa_pairs
+
+                except json.JSONDecodeError as e:
+                    logger.error(f"批次 {batch_id}: 解析JSON失败 (尝试 {attempt + 1}/{config['MAX_RETRIES']})")
+                    logger.debug(f"原始返回内容: {content}")
+                    if attempt < config["MAX_RETRIES"] - 1:
+                        await asyncio.sleep(config["RETRY_DELAY"])
+                    continue
 
                 except Exception as e:
-                    logger.error(f"批次 {batch_id}: API调用出错: {str(e)}")
+                    logger.error(f"批次 {batch_id}: API调用出错: {str(e)} (尝试 {attempt + 1}/{config['MAX_RETRIES']})")
                     if attempt < config["MAX_RETRIES"] - 1:
-                        wait_time = config["RETRY_DELAY"] * (2 ** attempt)  # 指数退避策略
-                        logger.info(
-                            f"批次 {batch_id}: 等待 {wait_time} 秒后重试 ({attempt + 1}/{config['MAX_RETRIES']})")
+                        wait_time = config["RETRY_DELAY"] * (2 ** attempt)  # 指数退避
                         await asyncio.sleep(wait_time)
-                    else:
-                        logger.error(f"批次 {batch_id}: 达到最大重试次数，放弃请求")
-                        return []
+                    continue
 
-        except Exception as e:
-            logger.error(f"批次 {batch_id}: 生成问答对时出错: {str(e)}")
+            logger.error(f"批次 {batch_id}: 达到最大重试次数，放弃请求")
             return []
+
+    except Exception as e:
+        logger.error(f"批次 {batch_id}: 生成问答对时发生未捕获错误: {str(e)}")
+        return []
 
 
 def save_qa_pairs(qa_pairs: List[Dict], output_dir: str, filename: str = None):
@@ -462,126 +493,139 @@ def generate_statistics(qa_pairs: List[Dict]):
     return stats
 
 
-async def process_qa_generation():
-    """处理问答对生成的主函数"""
-    # 加载配置
-    config = load_config()
+async def process_qa_generation(config=None):
+    """
+    处理问答对生成的主异步函数
+
+    参数:
+        config (Dict): 生成配置(可选)
+
+    返回:
+        Tuple[List[Dict], Dict, str]:
+            - 生成的问答对列表
+            - 统计信息字典
+            - 输出文件路径
+    """
+    # 加载配置(如果未传入)
+    config = config or load_config()
+
+    # 验证配置
     validation_error = validate_config(config)
     if validation_error:
-        print(f"错误: {validation_error}")
-        print("请在generate_config.json中填写所有必要的配置项后再运行")
-        sys.exit(1)
+        logger.error(f"配置验证失败: {validation_error}")
+        raise ValueError(f"无效配置: {validation_error}")
 
-    # 设置日志记录
+    # 初始化日志
     logger = setup_logging(config.get("LOG_DIR", "logs"))
 
-    # 获取活动主题列表
+    # 获取活动主题
     active_topics = config.get("ACTIVE_TOPICS", [])
     if active_topics:
-        topics_str = "，".join(active_topics)
-        logger.info(f"使用指定的主题: {topics_str}")
+        logger.info(f"使用指定主题: {', '.join(active_topics)}")
     else:
         logger.info("未指定特定主题，将从全部主题中随机选择")
 
-    logger.info(f"开始生成问答对，目标数量: {config['TARGET_QA_COUNT']}")
+    target_count = config["TARGET_QA_COUNT"]
+    logger.info(f"开始生成问答对，目标数量: {target_count}")
 
-    # 创建输出目录
+    # 准备输出目录
     output_dir = config.get("OUTPUT_DIR", "generated_qa")
     os.makedirs(output_dir, exist_ok=True)
-
-    # 创建新的问答对文件
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     qa_filename = f"qa_pairs_{timestamp}.json"
-    qa_file_path = os.path.join(output_dir, qa_filename)
+    qa_filepath = os.path.join(output_dir, qa_filename)
 
-    # 初始化空的问答对列表
+    # 初始化数据存储
     all_qa_pairs = []
     save_qa_pairs(all_qa_pairs, output_dir, qa_filename)
+    logger.info(f"输出文件: {qa_filepath}")
 
-    logger.info(f"将创建新的问答对文件: {qa_file_path}")
-
-    # 计算需要生成的问答对数量
-    target_count = config["TARGET_QA_COUNT"]
-    remaining_count = target_count
-
-    # 创建并发控制信号量
+    # 并发控制
     semaphore = asyncio.Semaphore(config.get("MAX_CONCURRENT_CALLS", 5))
-
-    # 计算需要的批次数
     qa_per_request = config.get("QA_PER_REQUEST", 5)
-    required_batches = (remaining_count + qa_per_request - 1) // qa_per_request  # 向上取整
+    required_batches = (target_count + qa_per_request - 1) // qa_per_request
 
-    logger.info(f"需要生成 {remaining_count} 个问答对，计划分 {required_batches} 个批次")
+    logger.info(f"计划分 {required_batches} 个批次生成，每批 {qa_per_request} 题")
 
-    # 批量处理，每批次生成一组问答对
-    current_qa_count = 0
+    # 批量生成
+    current_count = 0
     batch_size = config.get("BATCH_SIZE", 8)
-
     batch_id = 0
-    while current_qa_count < target_count:
-        # 确定当前批次的大小
-        current_batch_size = min(batch_size, (target_count - current_qa_count + qa_per_request - 1) // qa_per_request)
+
+    while current_count < target_count:
+        # 计算当前批次大小
+        current_batch_size = min(
+            batch_size,
+            (target_count - current_count + qa_per_request - 1) // qa_per_request
+        )
 
         logger.info(
-            f"处理批次 {batch_id + 1} 到 {batch_id + current_batch_size} (总进度: {current_qa_count}/{target_count})")
+            f"处理批次 {batch_id + 1}-{batch_id + current_batch_size} "
+            f"(进度: {current_count}/{target_count})"
+        )
 
-        # 创建当前批次的任务
-        tasks = []
-        for i in range(current_batch_size):
-            task = generate_qa_pairs(
-                semaphore,
-                all_qa_pairs,
-                batch_id + i + 1
+        # 创建并执行批次任务
+        tasks = [
+            generate_qa_pairs(
+                semaphore=semaphore,
+                existing_qa_pairs=all_qa_pairs,
+                batch_id=batch_id + i + 1,
+                config=config
             )
-            tasks.append(task)
+            for i in range(current_batch_size)
+        ]
 
-        # 并行执行当前批次的任务
         batch_results = await asyncio.gather(*tasks)
 
-        # 处理批次结果
+        # 处理结果
         new_pairs = []
         for result in batch_results:
             if result:
                 new_pairs.extend(result)
 
-        # 更新计数并保存结果
-        current_qa_count += len(new_pairs)
+        # 更新状态
+        current_count += len(new_pairs)
         batch_id += current_batch_size
 
-        # 如果生成了新的问答对，保存到文件
         if new_pairs:
             all_qa_pairs.extend(new_pairs)
             total_saved = save_qa_pairs(all_qa_pairs, output_dir, qa_filename)
-            logger.info(f"已保存 {len(new_pairs)} 个新问答对，当前总计: {total_saved}/{target_count}")
+
+            logger.info(
+                f"已保存 {len(new_pairs)} 题，总计: {total_saved}/{target_count} "
+                f"(成功率: {total_saved / (batch_id * qa_per_request):.1%})"
+            )
 
             # 定期打印统计信息
             if len(all_qa_pairs) % 50 == 0 or len(all_qa_pairs) >= target_count:
                 stats = generate_statistics(all_qa_pairs)
                 logger.info(
-                    f"当前统计: 总计{stats['total']}题，按类型: {stats['by_type']}，按难度: {stats['by_difficulty']}")
+                    f"当前统计: 总计{stats['total']}题 | "
+                    f"题型: {stats['by_type']} | "
+                    f"难度: {stats['by_difficulty']}"
+                )
         else:
-            # 如果当前批次没有生成任何问答对，等待一段时间后继续
-            logger.warning("当前批次未能生成问答对，等待后继续...")
+            logger.warning("当前批次未生成有效题目，等待后重试...")
             await asyncio.sleep(config.get("FAIL_WAIT_TIME", 5))
 
-        # 检查是否已达到目标数量
-        if current_qa_count >= target_count:
-            logger.info(f"已达到目标数量 ({current_qa_count}/{target_count})，停止生成")
+        # 完成检查
+        if current_count >= target_count:
+            logger.info(f"完成生成，实际生成 {len(all_qa_pairs)} 题")
             break
 
-    # 生成最终统计信息
+    # 生成最终统计
     final_stats = generate_statistics(all_qa_pairs)
-    logger.info(f"问答对生成完成，总计: {len(all_qa_pairs)} 个问答对")
-    logger.info(f"最终统计: 按类型: {final_stats['by_type']}")
-    logger.info(f"按主题: {final_stats['by_topic']}")
-    logger.info(f"按难度: {final_stats['by_difficulty']}")
+    stats_filename = f"statistics_{timestamp}.json"
+    stats_filepath = os.path.join(output_dir, stats_filename)
 
-    # 保存统计信息
-    stats_file = os.path.join(output_dir, f"statistics_{timestamp}.json")
-    with open(stats_file, 'w', encoding='utf-8') as f:
+    with open(stats_filepath, 'w', encoding='utf-8') as f:
         json.dump(final_stats, f, ensure_ascii=False, indent=2)
 
-    return all_qa_pairs, final_stats, qa_file_path
+    logger.info(f"统计信息已保存: {stats_filepath}")
+    logger.info("=== 生成过程完成 ===")
+
+    return all_qa_pairs, final_stats, qa_filepath
+
 
 
 def parse_arguments():
