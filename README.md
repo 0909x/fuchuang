@@ -28,6 +28,5 @@ python test.py --qa-file path/to/your/qa_pairs.json --model model_name --output-
 * 输出的json中每个元素有model_answer与correct_answer属性，分别为测试模型的作答与正确答案，后续分析时直接提取即可。
 
 ### 链接部分
-修改了generate、page、sever
-已实现自定义标签、数量、题目类型
-未实现题目类型多选、默认标签调用题库
+
+完成了网页和后端的链接，用户使用只需运行ssever
